@@ -23,17 +23,24 @@ extension Color: @retroactive RawRepresentable {
     let red = Double((rawValue & 0xFF0000) >> 16) / 0xFF
     let green = Double((rawValue & 0x00FF00) >> 8) / 0xFF
     let blue = Double(rawValue & 0x0000FF) / 0xFF
-    self = Color(red: red, green: green, blue: blue)
+    // Bits 24-31 hold 255 - alpha so values saved without alpha decode as opaque.
+    let opacity = Double(0xFF - ((rawValue >> 24) & 0xFF)) / 0xFF
+    self = Color(red: red, green: green, blue: blue, opacity: opacity)
   }
 
   public var rawValue: Int {
     guard let coreImageColor else {
       return 0
     }
-    let red = Int(coreImageColor.red * 255 + 0.5)
-    let green = Int(coreImageColor.green * 255 + 0.5)
-    let blue = Int(coreImageColor.blue * 255 + 0.5)
-    return (red << 16) | (green << 8) | blue
+    let red = Self.clampedComponent(coreImageColor.red)
+    let green = Self.clampedComponent(coreImageColor.green)
+    let blue = Self.clampedComponent(coreImageColor.blue)
+    let alpha = Self.clampedComponent(coreImageColor.alpha)
+    return ((0xFF - alpha) << 24) | (red << 16) | (green << 8) | blue
+  }
+
+  private static func clampedComponent(_ value: CGFloat) -> Int {
+    min(max(Int(value * 255 + 0.5), 0), 255)
   }
 
   private var coreImageColor: CIColor? {
